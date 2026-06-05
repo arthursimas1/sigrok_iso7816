@@ -1,0 +1,6 @@
+# Python cache
+__pycache__/
+
+# Testing / Coverage
+.coverage
+htmlcov/
