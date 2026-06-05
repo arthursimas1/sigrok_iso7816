@@ -9,7 +9,9 @@ A robust protocol decoder for the **ISO 7816 Smart Card** standard, built as a p
 
 Whether you are reverse engineering a SIM card, analyzing EMV transactions, or troubleshooting custom smart cards with a logic analyzer via **PulseView** or **sigrok-cli**, this decoder provides deep packet inspection, automated baud rate detection, and seamless Wireshark integration.
 
-![SIM Card Logic Analyzer Setup](./assets/card_reader_setup.jpg)
+<p align="center">
+<img src="./assets/card_reader_setup.jpg" alt="SIM Card Logic Analyzer Setup" width="300">
+</p>
 
 The figure above demonstrates a typical hardware setup for intercepting ISO 7816 traffic. A logic analyzer is connected to a SIM reader, probing the **GND** (common ground), **RST** (reset), **I/O** (data) lines. The SIM reader itself is connected to the computer via USB. A proprietary software is used to store data in the SIM card. (*As you can notice, there's a probe in the clock pin that was used during development to verify the timing, but is not required for the decoder to function*)
 
@@ -23,7 +25,7 @@ The figure above demonstrates a typical hardware setup for intercepting ISO 7816
 - **Deep Protocol Inspection (T=0 & T=1):** 
   - **T=0:** Parses headers, procedure bytes, and groups the payload into contiguous APDUs.
   - **T=1:** Extracts the Prologue (NAD, PCB, LEN), Information Field, and validates the Epilogue (LRC/CRC).
-- **Wireshark Integration (PCAP Export):** Automatically exports raw card traffic into a standard binary PCAP file encapsulated with GSMTAP/UDP headers. Simply open the output in Wireshark for instant deep-dive APDU packet analysis.
+- **Wireshark Integration (PCAP Export):** Automatically exports raw card traffic into a standard binary PCAP file encapsulated with GSMTAP/UDP headers, preserving accurate real-time packet timestamps. Simply open the output in Wireshark for instant deep-dive APDU packet analysis.
 - **Robust State Machine:** Built with a clean `PhysicalLayer` and `ProtocolLayer` architecture, verified by a comprehensive End-to-End bit stream testing framework.
 
 ---
@@ -51,7 +53,7 @@ mkdir "%APPDATA%\sigrokdecode\decoders"
 git clone https://github.com/arthursimas1/sigrok_iso7816.git "%APPDATA%\sigrokdecode\decoders\iso7816"
 ```
 
-Restart PulseView or `sigrok-cli` to reload the decoders.
+Restart PulseView to reload the decoders list.
 
 ---
 
@@ -64,17 +66,24 @@ Restart PulseView or `sigrok-cli` to reload the decoders.
 ### Using PulseView (GUI)
 1. Open your logic capture in PulseView.
 2. Add the **"ISO 7816 Smart Card"** decoder from the protocol list.
-3. Assign your logic analyzer traces to the `RST` and `I/O` channels.
-4. *(Optional)* Configure the PCAP output path in the decoder options to export the APDUs to Wireshark.
+3. Assign your logic analyzer channels to `RST` and `I/O`.
+
+![PulseView Screenshot](./assets/pulseview_overview_screenshot.png)
+
+![PulseView Closeup](./assets/pulseview_closeup_screenshot.png)
 
 ### Using `sigrok-cli`
-Run the decoder headlessly and immediately dump the output to a Wireshark PCAP file:
+Run the decoder in the command line and dump the output to a Wireshark PCAP file:
 
 ```bash
 sigrok-cli -i capture.sr -P iso7816:rst=D0:io=D1 -B iso7816=pcap > output.pcap
 ```
 
-*In the example above, `0` and `1` represent the logic analyzer pin numbers connected to RST and I/O respectively.*
+*In the example above, `D0` and `D1` represent the logic analyzer pin numbers connected to RST and I/O respectively.*
+
+![Wireshark Screenshot](./assets/wireshark_overview_screenshot.png)
+
+![Wireshark Closeup](./assets/wireshark_closeup_screenshot.png)
 
 ---
 
