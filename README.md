@@ -9,6 +9,10 @@ A robust protocol decoder for the **ISO 7816 Smart Card** standard, built as a p
 
 Whether you are reverse engineering a SIM card, analyzing EMV transactions, or troubleshooting custom smart cards with a logic analyzer via **PulseView** or **sigrok-cli**, this decoder provides deep packet inspection, automated baud rate detection, and seamless Wireshark integration.
 
+![SIM Card Logic Analyzer Setup](./assets/card_reader_setup.jpg)
+
+The figure above demonstrates a typical hardware setup for intercepting ISO 7816 traffic. A logic analyzer is connected to a SIM reader, probing the **GND** (common ground), **RST** (reset), **I/O** (data) lines. The SIM reader itself is connected to the computer via USB. A proprietary software is used to store data in the SIM card. (*As you can notice, there's a probe in the clock pin that was used during development to verify the timing, but is not required for the decoder to function*)
+
 ---
 
 ## ✨ Features
