@@ -1,0 +1,82 @@
+name: Coverage Report
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run tests and generate coverage report
+        run: |
+          python -m coverage run test_pd.py
+          python -m coverage report > coverage_report.txt
+          
+          COVERAGE_PERCENTAGE=$(python -m coverage report | grep TOTAL | awk '{print $NF}' | sed 's/%//')
+          echo "COVERAGE_PERCENTAGE=$COVERAGE_PERCENTAGE" >> $GITHUB_ENV
+          
+          if [ "$COVERAGE_PERCENTAGE" -ge 90 ]; then
+            COLOR="brightgreen"
+          elif [ "$COVERAGE_PERCENTAGE" -ge 80 ]; then
+            COLOR="green"
+          elif [ "$COVERAGE_PERCENTAGE" -ge 70 ]; then
+            COLOR="yellow"
+          elif [ "$COVERAGE_PERCENTAGE" -ge 60 ]; then
+            COLOR="orange"
+          else
+            COLOR="red"
+          fi
+          echo "COVERAGE_COLOR=$COLOR" >> $GITHUB_ENV
+          
+          echo "### 🧪 Test Coverage Report" > pr_comment.md
+          echo "**Total Coverage:** \`${COVERAGE_PERCENTAGE}%\`" >> pr_comment.md
+          echo "<details><summary>Click to expand full report</summary>" >> pr_comment.md
+          echo "" >> pr_comment.md
+          echo '```text' >> pr_comment.md
+          cat coverage_report.txt >> pr_comment.md
+          echo '```' >> pr_comment.md
+          echo "</details>" >> pr_comment.md
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: test-coverage
+          path: pr_comment.md
+
+      - name: Update README badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          sed -i -E "s/codecov-[0-9]+%25-[a-zA-Z]+/codecov-${{ env.COVERAGE_PERCENTAGE }}%25-${{ env.COVERAGE_COLOR }}/g" README.md
+          
+          if [[ -n $(git status -s README.md) ]]; then
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "docs: auto-update coverage badge [skip ci]"
+            git push
+          else
+            echo "No changes to commit"
+          fi
