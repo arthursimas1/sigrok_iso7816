@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     branches:
       - main
 
@@ -61,14 +62,16 @@ jobs:
           echo "</details>" >> pr_comment.md
 
       - name: Comment on PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.action != 'closed'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: test-coverage
           path: pr_comment.md
 
       - name: Update README badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
         run: |
           sed -i -E "s/codecov-[0-9]+%25-[a-zA-Z]+/codecov-${{ env.COVERAGE_PERCENTAGE }}%25-${{ env.COVERAGE_COLOR }}/g" README.md
 
