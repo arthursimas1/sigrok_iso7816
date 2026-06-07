@@ -34,10 +34,10 @@ jobs:
           python -m coverage run test_pd.py
           python -m coverage report > coverage_report.txt
           cat coverage_report.txt
-          
+
           COVERAGE_PERCENTAGE=$(python -m coverage report --omit "test_pd.py" | grep TOTAL | awk '{print $NF}' | sed 's/%//')
           echo "COVERAGE_PERCENTAGE=$COVERAGE_PERCENTAGE" >> $GITHUB_ENV
-          
+
           if [ "$COVERAGE_PERCENTAGE" -ge 90 ]; then
             COLOR="brightgreen"
           elif [ "$COVERAGE_PERCENTAGE" -ge 80 ]; then
@@ -50,7 +50,7 @@ jobs:
             COLOR="red"
           fi
           echo "COVERAGE_COLOR=$COLOR" >> $GITHUB_ENV
-          
+
           echo "### 🧪 Test Coverage Report" > pr_comment.md
           echo "**Total Coverage:** \`${COVERAGE_PERCENTAGE}%\`" >> pr_comment.md
           echo "<details><summary>Click to expand full report</summary>" >> pr_comment.md
@@ -71,7 +71,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           sed -i -E "s/codecov-[0-9]+%25-[a-zA-Z]+/codecov-${{ env.COVERAGE_PERCENTAGE }}%25-${{ env.COVERAGE_COLOR }}/g" README.md
-          
+
           if [[ -n $(git status -s README.md) ]]; then
             git config --global user.name "github-actions[bot]"
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
