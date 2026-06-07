@@ -102,7 +102,7 @@ class PhysicalLayer:
         if res is None: return None
         bits, parity, ss, es = res
         val = self.bits_to_byte(bits)
-        
+
         if self.d.convention == 'inverse':
             expected_parity = 1 - (sum(bits) % 2)
         else:

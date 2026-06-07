@@ -298,11 +298,11 @@ class TestPhysicalLayerErrorScenarios(unittest.TestCase):
         stream.time += 10 # small glitch
         stream.events.append((stream.time, 1, 1)) # Back to 1
         stream.time += 100 * 12 # some delay
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
         self.decoder.proto.phy.etu = 100
-        
+
         self.decoder.proto.phy.read_byte_raw(already_at_end_of_start_bit=False)
         put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
         self.assertIn('Invalid Start Bit', put_calls)
@@ -310,17 +310,17 @@ class TestPhysicalLayerErrorScenarios(unittest.TestCase):
     def test_read_byte_raw_invalid_stop_bit(self):
         stream = ISO7816Stream(100)
         stream.add_delay(5)
-        
+
         # Valid byte but stop bit is 0
         stream.add_bit(0) # Start
         for _ in range(8): stream.add_bit(0)
         stream.add_bit(0) # Parity
         stream.add_bit(0, etus=2) # Invalid Stop (should be 1)
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
         self.decoder.proto.phy.etu = 100
-        
+
         self.decoder.proto.phy.read_byte_raw(already_at_end_of_start_bit=False)
         put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
         self.assertIn('Invalid Stop Bit', put_calls)
@@ -328,18 +328,18 @@ class TestPhysicalLayerErrorScenarios(unittest.TestCase):
     def test_read_byte_parity_error_direct(self):
         stream = ISO7816Stream(100)
         stream.add_delay(5)
-        
+
         # Manually create byte with parity error
         stream.add_bit(0) # Start
         for _ in range(8): stream.add_bit(0) # Data = 0
         stream.add_bit(1) # Invalid parity (even expected, so should be 0)
         stream.add_bit(1, etus=2) # Stop
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
         self.decoder.proto.phy.etu = 100
         self.decoder.convention = 'direct'
-        
+
         self.decoder.proto.phy.read_byte()
         put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
         self.assertIn('Invalid Parity Bit', put_calls)
@@ -347,18 +347,18 @@ class TestPhysicalLayerErrorScenarios(unittest.TestCase):
     def test_read_byte_parity_error_inverse(self):
         stream = ISO7816Stream(100)
         stream.add_delay(5)
-        
+
         # Manually create byte with parity error
         stream.add_bit(0) # Start
         for _ in range(8): stream.add_bit(0) # Data = FF (inverse)
         stream.add_bit(0) # Invalid parity (expected 1 for odd number of total physical 1s)
         stream.add_bit(1, etus=2) # Stop
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
         self.decoder.proto.phy.etu = 100
         self.decoder.convention = 'inverse'
-        
+
         self.decoder.proto.phy.read_byte()
         put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
         self.assertIn('Invalid Parity Bit', put_calls)
@@ -376,7 +376,7 @@ class TestProtocolLayerErrorScenarios(unittest.TestCase):
         stream.add_delay(5)
         stream.add_byte(0x3A, convention='direct') # Invalid TS
         stream.add_byte(0x00) # T0
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
 
@@ -439,11 +439,11 @@ class TestProtocolLayerErrorScenarios(unittest.TestCase):
         pps_req_bytes = [0x10, 0x11, 0xEE] # Request
         for b in pps_req_bytes:
             stream.add_byte(b)
-        
+
         stream.add_delay(5)
         stream.add_byte(0xFF) # PPSS response
         stream.add_reset(0)   # Abort during response
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
         self.decoder.proto.phy.etu = 100
@@ -459,7 +459,7 @@ class TestProtocolLayerErrorScenarios(unittest.TestCase):
         stream.add_byte(0x00) # INS
         stream.add_byte(0x00) # P1
         stream.add_reset(0)   # Abort
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
         self.decoder.proto.phy.etu = 100
@@ -474,9 +474,9 @@ class TestProtocolLayerErrorScenarios(unittest.TestCase):
         # CLA, INS, P1, P2, P3
         apdu_hdr = [0x00, 0x00, 0x02, 0x05]
         for b in apdu_hdr: stream.add_byte(b)
-        
+
         stream.add_byte(0x55) # Unknown Procedure Byte
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
         self.decoder.proto.phy.etu = 100
@@ -520,7 +520,7 @@ class TestDecoderErrorScenarios(unittest.TestCase):
         # Incomplete ATR
         stream.add_byte(0x3B)
         stream.add_reset(0) # Abort
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
 
@@ -538,11 +538,11 @@ class TestDecoderErrorScenarios(unittest.TestCase):
 
         stream.add_byte(0x3B)
         stream.add_byte(0x00) # Complete ATR
-        
+
         stream.add_delay(20)
         stream.add_byte(0xA4) # Start APDU
         stream.add_reset(0)   # Abort APDU
-        
+
         mock_srd = MockSigrokDecoder(self.decoder, stream)
         self.decoder.wait = mock_srd.wait
 

@@ -72,12 +72,11 @@ jobs:
         run: |
           sed -i -E "s/codecov-[0-9]+%25-[a-zA-Z]+/codecov-${{ env.COVERAGE_PERCENTAGE }}%25-${{ env.COVERAGE_COLOR }}/g" README.md
 
-          if [[ -n $(git status -s README.md) ]]; then
-            git config --global user.name "github-actions[bot]"
-            git config --global user.email "github-actions[bot]@users.noreply.github.com"
-            git add README.md
-            git commit -m "docs: auto-update coverage badge [skip ci]"
-            git push
-          else
-            echo "No changes to commit"
-          fi
+      - name: Commit signed badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: ryancyq/github-signed-commit@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: README.md
+          commit-message: "docs: auto-update coverage badge [skip ci]"

@@ -86,7 +86,6 @@ git clone https://github.com/arthursimas1/sigrok_iso7816.git ~/.local/share/libs
 
 ![PulseView Closeup](./assets/pulseview_closeup_screenshot.png)
 
-
 ### 2. Export the capture (`.sr`)
 
 Once you have successfully captured the communication in PulseView, you need to save the raw session data to process it via the command line.
