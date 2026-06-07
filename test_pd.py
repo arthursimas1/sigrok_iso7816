@@ -502,5 +502,54 @@ class TestProtocolLayerErrorScenarios(unittest.TestCase):
         self.assertIn('T=1 Block (Aborted)', put_calls)
 
 
+class TestDecoderErrorScenarios(unittest.TestCase):
+    def setUp(self):
+        self.decoder = Decoder()
+        self.decoder.register = MagicMock(side_effect=[0, 1])
+        self.decoder.put = MagicMock()
+        self.decoder.out_ann = srd.OUTPUT_ANN
+        self.decoder.out_pcap = srd.OUTPUT_BINARY
+
+    def test_decode_aborted_atr(self):
+        stream = ISO7816Stream(100)
+        stream.add_reset(0)
+        stream.add_delay(10)
+        stream.add_reset(1)
+        stream.add_delay(10)
+
+        # Incomplete ATR
+        stream.add_byte(0x3B)
+        stream.add_reset(0) # Abort
+
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+
+        with self.assertRaises(StopIteration):
+            self.decoder.decode()
+
+        self.assertEqual(self.decoder.state, 'WAIT_RESET')
+
+    def test_decode_aborted_command(self):
+        stream = ISO7816Stream(100)
+        stream.add_reset(0)
+        stream.add_delay(10)
+        stream.add_reset(1)
+        stream.add_delay(10)
+
+        stream.add_byte(0x3B)
+        stream.add_byte(0x00) # Complete ATR
+
+        stream.add_delay(20)
+        stream.add_byte(0xA4) # Start APDU
+        stream.add_reset(0)   # Abort APDU
+
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+
+        with self.assertRaises(StopIteration):
+            self.decoder.decode()
+
+        self.assertEqual(self.decoder.state, 'WAIT_RESET')
+
 if __name__ == '__main__':
     unittest.main()
