@@ -27,9 +27,12 @@ class ISO7816Stream:
     def add_reset(self, val):
         self.events.append((self.time, 0, val))
 
-    def add_byte(self, val, convention='direct'):
-        self.events.append((self.time, 1, 0)) # Start
-        self.time += self.etu
+    def add_bit(self, val, *, etus=1):
+        self.events.append((self.time, 1, val))
+        self.time += self.etu * etus
+
+    def add_byte(self, val, *, convention='direct'):
+        self.add_bit(0) # Start
 
         bits = []
         if convention == 'direct':
@@ -38,18 +41,15 @@ class ISO7816Stream:
             for i in range(8): bits.append(1 - ((val >> (7-i)) & 1))
 
         for b in bits:
-            self.events.append((self.time, 1, b))
-            self.time += self.etu
+            self.add_bit(b)
 
         parity = sum(bits) % 2
         if convention == 'inverse':
             parity = 1 - parity
 
-        self.events.append((self.time, 1, parity))
-        self.time += self.etu
+        self.add_bit(parity)
 
-        self.events.append((self.time, 1, 1)) # Stop
-        self.time += self.etu * 2
+        self.add_bit(1, etus=2) # Stop
 
     def finish(self):
         self.events.sort(key=lambda x: x[0])
@@ -270,6 +270,286 @@ class TestDecoderE2E(unittest.TestCase):
         block_bytes = [0x00, 0x00, 0x00, 0x00] # Block: NAD=00, PCB=00, LEN=00, EDC=00
         self._run_full_decode(atr_bytes, block_bytes)
         self.assertEqual(self.decoder.proto.protocol, 1)
+
+class TestPhysicalLayerErrorScenarios(unittest.TestCase):
+    def setUp(self):
+        self.decoder = Decoder()
+        self.decoder.put = MagicMock()
+        self.decoder.out_ann = srd.OUTPUT_ANN
+        self.decoder.out_pcap = srd.OUTPUT_BINARY
+
+    def test_read_byte_raw_aborted_by_reset(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        # Instead of adding a byte, we add a reset falling edge
+        stream.add_reset(0)
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+
+        self.decoder.proto.phy.etu = 100
+        res = self.decoder.proto.phy.read_byte_raw(already_at_end_of_start_bit=False)
+        self.assertIsNone(res)
+
+    def test_read_byte_raw_invalid_start_bit(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        # To make an invalid start bit, we need it to fall (so wait triggers) but then go back to 1 before etu // 2
+        stream.events.append((stream.time, 1, 0)) # Start falling edge
+        stream.time += 10 # small glitch
+        stream.events.append((stream.time, 1, 1)) # Back to 1
+        stream.time += 100 * 12 # some delay
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+        
+        self.decoder.proto.phy.read_byte_raw(already_at_end_of_start_bit=False)
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('Invalid Start Bit', put_calls)
+
+    def test_read_byte_raw_invalid_stop_bit(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        
+        # Valid byte but stop bit is 0
+        stream.add_bit(0) # Start
+        for _ in range(8): stream.add_bit(0)
+        stream.add_bit(0) # Parity
+        stream.add_bit(0, etus=2) # Invalid Stop (should be 1)
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+        
+        self.decoder.proto.phy.read_byte_raw(already_at_end_of_start_bit=False)
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('Invalid Stop Bit', put_calls)
+
+    def test_read_byte_parity_error_direct(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        
+        # Manually create byte with parity error
+        stream.add_bit(0) # Start
+        for _ in range(8): stream.add_bit(0) # Data = 0
+        stream.add_bit(1) # Invalid parity (even expected, so should be 0)
+        stream.add_bit(1, etus=2) # Stop
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+        self.decoder.convention = 'direct'
+        
+        self.decoder.proto.phy.read_byte()
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('Invalid Parity Bit', put_calls)
+
+    def test_read_byte_parity_error_inverse(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        
+        # Manually create byte with parity error
+        stream.add_bit(0) # Start
+        for _ in range(8): stream.add_bit(0) # Data = FF (inverse)
+        stream.add_bit(0) # Invalid parity (expected 1 for odd number of total physical 1s)
+        stream.add_bit(1, etus=2) # Stop
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+        self.decoder.convention = 'inverse'
+        
+        self.decoder.proto.phy.read_byte()
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('Invalid Parity Bit', put_calls)
+
+
+class TestProtocolLayerErrorScenarios(unittest.TestCase):
+    def setUp(self):
+        self.decoder = Decoder()
+        self.decoder.put = MagicMock()
+        self.decoder.out_ann = srd.OUTPUT_ANN
+        self.decoder.out_pcap = srd.OUTPUT_BINARY
+
+    def test_parse_atr_invalid_ts(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        stream.add_byte(0x3A, convention='direct') # Invalid TS
+        stream.add_byte(0x00) # T0
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+
+        try:
+            self.decoder.proto.parse_atr()
+        except StopIteration:
+            pass
+
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('Invalid TS', put_calls)
+
+    def test_parse_atr_aborted(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        stream.add_byte(0x3B)
+        # T0 is missing, instead a reset occurs
+        stream.add_reset(0)
+
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+
+        self.assertFalse(self.decoder.proto.parse_atr())
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('ATR (Aborted)', put_calls)
+
+    def test_decode_pps_no_response(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        pps_req_bytes = [0x10, 0x11, 0xEE]
+        for b in pps_req_bytes:
+            stream.add_byte(b)
+        stream.add_delay(5)
+        stream.add_reset(0) # Reset before response
+
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+
+        self.assertFalse(self.decoder.proto.decode_pps(0xFF, 0, 10))
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('PPS (No Response)', put_calls)
+
+    def test_decode_pps_aborted_during_request(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        stream.add_byte(0x10) # PPS0
+        stream.add_reset(0)   # Abort before PPS1 or PCK
+
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+
+        self.assertFalse(self.decoder.proto.decode_pps(0xFF, 0, 10))
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('PPS Request (Aborted)', put_calls)
+
+    def test_decode_pps_aborted_during_response(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        pps_req_bytes = [0x10, 0x11, 0xEE] # Request
+        for b in pps_req_bytes:
+            stream.add_byte(b)
+        
+        stream.add_delay(5)
+        stream.add_byte(0xFF) # PPSS response
+        stream.add_reset(0)   # Abort during response
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+
+        self.assertFalse(self.decoder.proto.decode_pps(0xFF, 0, 10))
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('PPS Response (Aborted)', put_calls)
+
+    def test_decode_t0_aborted(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        # Send CLA, INS, P1, and then reset
+        stream.add_byte(0x00) # INS
+        stream.add_byte(0x00) # P1
+        stream.add_reset(0)   # Abort
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+
+        self.assertFalse(self.decoder.proto.decode_t0(0xA4, 0, 10)) # 0xA4 is CLA
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('T=0 APDU (Aborted)', put_calls)
+
+    def test_decode_t0_unknown_pb(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        # CLA, INS, P1, P2, P3
+        apdu_hdr = [0x00, 0x00, 0x02, 0x05]
+        for b in apdu_hdr: stream.add_byte(b)
+        
+        stream.add_byte(0x55) # Unknown Procedure Byte
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+
+        self.assertTrue(self.decoder.proto.decode_t0(0xA4, 0, 10))
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('Unknown PB: 55', put_calls)
+
+    def test_decode_t1_aborted(self):
+        stream = ISO7816Stream(100)
+        stream.add_delay(5)
+        # PCB only, then abort
+        stream.add_byte(0x00)
+        stream.add_reset(0)
+
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+        self.decoder.proto.phy.etu = 100
+        self.decoder.proto.t1_crc = False
+
+        self.assertFalse(self.decoder.proto.decode_t1(0x00, 0, 10))
+        put_calls = [call.args[3][1][0] for call in self.decoder.put.mock_calls]
+        self.assertIn('T=1 Block (Aborted)', put_calls)
+
+
+class TestDecoderErrorScenarios(unittest.TestCase):
+    def setUp(self):
+        self.decoder = Decoder()
+        self.decoder.register = MagicMock(side_effect=[0, 1])
+        self.decoder.put = MagicMock()
+        self.decoder.out_ann = srd.OUTPUT_ANN
+        self.decoder.out_pcap = srd.OUTPUT_BINARY
+
+    def test_decode_aborted_atr(self):
+        stream = ISO7816Stream(100)
+        stream.add_reset(0)
+        stream.add_delay(10)
+        stream.add_reset(1)
+        stream.add_delay(10)
+
+        # Incomplete ATR
+        stream.add_byte(0x3B)
+        stream.add_reset(0) # Abort
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+
+        with self.assertRaises(StopIteration):
+            self.decoder.decode()
+
+        self.assertEqual(self.decoder.state, 'WAIT_RESET')
+
+    def test_decode_aborted_command(self):
+        stream = ISO7816Stream(100)
+        stream.add_reset(0)
+        stream.add_delay(10)
+        stream.add_reset(1)
+        stream.add_delay(10)
+
+        stream.add_byte(0x3B)
+        stream.add_byte(0x00) # Complete ATR
+        
+        stream.add_delay(20)
+        stream.add_byte(0xA4) # Start APDU
+        stream.add_reset(0)   # Abort APDU
+        
+        mock_srd = MockSigrokDecoder(self.decoder, stream)
+        self.decoder.wait = mock_srd.wait
+
+        with self.assertRaises(StopIteration):
+            self.decoder.decode()
+
+        self.assertEqual(self.decoder.state, 'WAIT_RESET')
 
 if __name__ == '__main__':
     unittest.main()

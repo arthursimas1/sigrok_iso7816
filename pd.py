@@ -61,6 +61,8 @@ class PhysicalLayer:
             self.d.ss_byte = self.d.samplenum
 
             pins = self.d.wait({'skip': self.etu // 2})
+            if pins[1] != 0:
+                self.put_ann(self.d.samplenum - (self.etu // 2), self.d.samplenum + (self.etu // 2), 2, ['Invalid Start Bit'])
             self.put_ann(self.d.samplenum - (self.etu // 2), self.d.samplenum + (self.etu // 2), 0, ['S'])
 
             pins = self.d.wait({'skip': self.etu})
@@ -78,6 +80,8 @@ class PhysicalLayer:
         self.put_ann(self.d.samplenum - (self.etu // 2), self.d.samplenum + (self.etu // 2), 0, ['P:%d' % parity])
 
         pins = self.d.wait({'skip': self.etu})
+        if pins[1] != 1:
+            self.put_ann(self.d.samplenum - (self.etu // 2), self.d.samplenum + (self.etu // 2), 2, ['Invalid Stop Bit'])
         self.put_ann(self.d.samplenum - (self.etu // 2), self.d.samplenum + (self.etu // 2), 0, ['T'])
 
         return bits, parity, self.d.ss_byte, self.d.samplenum + (self.etu // 2)
@@ -98,6 +102,17 @@ class PhysicalLayer:
         if res is None: return None
         bits, parity, ss, es = res
         val = self.bits_to_byte(bits)
+        
+        if self.d.convention == 'inverse':
+            expected_parity = 1 - (sum(bits) % 2)
+        else:
+            expected_parity = sum(bits) % 2
+
+        if parity != expected_parity:
+            parity_es = es - self.etu
+            parity_ss = parity_es - self.etu
+            self.put_ann(parity_ss, parity_es, 2, ['Invalid Parity Bit'])
+
         self.put_ann(ss, es, 1, ['%02X' % val])
         return val, ss, es
 
