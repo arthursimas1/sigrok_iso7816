@@ -15,12 +15,12 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -33,8 +33,9 @@ jobs:
         run: |
           python -m coverage run test_pd.py
           python -m coverage report > coverage_report.txt
+          cat coverage_report.txt
           
-          COVERAGE_PERCENTAGE=$(python -m coverage report | grep TOTAL | awk '{print $NF}' | sed 's/%//')
+          COVERAGE_PERCENTAGE=$(python -m coverage report --omit "test_pd.py" | grep TOTAL | awk '{print $NF}' | sed 's/%//')
           echo "COVERAGE_PERCENTAGE=$COVERAGE_PERCENTAGE" >> $GITHUB_ENV
           
           if [ "$COVERAGE_PERCENTAGE" -ge 90 ]; then
