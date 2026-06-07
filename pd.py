@@ -501,7 +501,7 @@ class ProtocolLayer:
 
 class Decoder(srd.Decoder):
     api_version = 3
-    id = 'iso7816'
+    id = 'arthur_iso7816'
     name = 'ISO 7816'
     longname = 'ISO 7816 Smart Card'
     desc = 'ISO 7816 Smart Card protocol decoder'

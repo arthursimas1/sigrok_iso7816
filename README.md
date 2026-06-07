@@ -32,9 +32,9 @@ The figure above demonstrates a typical hardware setup for intercepting ISO 7816
 
 ## 🚀 Installation
 
-Before installing the decoder, you need to have the **sigrok** suite (PulseView and `sigrok-cli`) installed on your system, along with the appropriate logic analyzer drivers to capture the hardware signals.
+Before installing the decoder, you need to have the **sigrok** suite (PulseView and sigrok-cli) installed on your system, along with the appropriate logic analyzer drivers to capture the hardware signals.
 
-### 1. Install PulseView & Drivers
+### 1. Install PulseView, sigrok-cli & Drivers
 
 ```bash
 # debian/ubuntu
@@ -51,7 +51,7 @@ Grant your user permission to access the USB device:
 sudo usermod -a -G dialout $USER
 ```
 
-> ***Important***: Restart the machine for the dialout group changes to apply.
+**Restart the machine** for the dialout group changes to apply.
 
 ### 2. Install the ISO 7816 Decoder
 
@@ -94,9 +94,9 @@ Once you have successfully captured the communication in PulseView, you need to 
 1. Go to **Save As** in the menu bar
 2. Save the file as `capture.sr` in your working directory
 
-### 3. Convert to PCAP (`sigrok-cli`)
+### 3. Convert to PCAP (sigrok-cli)
 
-To perform deep packet inspection in Wireshark, use `sigrok-cli` to run the decoder against your saved `.sr` file and dump the binary output into a `.pcap` file.
+To perform deep packet inspection in Wireshark, use sigrok-cli to run the decoder against your saved `.sr` file and dump the binary output into a `.pcap` file.
 
 Open your terminal and run the following command:
 
