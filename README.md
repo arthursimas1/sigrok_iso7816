@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.x-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A robust protocol decoder for the **ISO 7816 Smart Card** standard, built as a plug-in for the [libsigrokdecode](https://sigrok.org/wiki/Libsigrokdecode) framework. 
+A robust protocol decoder for the **ISO 7816 Smart Card** standard, built as a plug-in for the [libsigrokdecode](https://sigrok.org/wiki/Libsigrokdecode) framework.
 
 Whether you are reverse engineering a SIM card, analyzing EMV transactions, or troubleshooting custom smart cards with a logic analyzer via **PulseView** or **sigrok-cli**, this decoder provides deep packet inspection, automated baud rate detection, and seamless Wireshark integration.
 
@@ -22,7 +22,7 @@ The figure above demonstrates a typical hardware setup for intercepting ISO 7816
 - **Multi-ATR Handling:** Unlike other implementations (e.g., [`svenso/sigrok_iso7816`](https://github.com/svenso/sigrok_iso7816)), this decoder gracefully handles mid-session hardware resets and multiple ATR broadcasts, avoiding incorrect parsing or dropping messages.
 - **Dynamic Auto-Baud Detection:** No clock line required! The decoder handles baud rates in two distinct phases: (1) measuring the initial ETU directly from the first falling edge pulse of the Answer To Reset (ATR), and (2) parsing the ATR data parameters and Protocol Parameter Selection (PPS) to dynamically adjust the baud rate for all subsequent messages.
 - **Direct & Inverse Convention Support:** Natively adapts to both standard (Direct: `0x3B`) and reversed/inverted (Inverse: `0x3F`) bit-ordering conventions on the fly.
-- **Deep Protocol Inspection (T=0 & T=1):** 
+- **Deep Protocol Inspection (T=0 & T=1):**
   - **T=0:** Parses headers, procedure bytes, and groups the payload into contiguous APDUs.
   - **T=1:** Extracts the Prologue (NAD, PCB, LEN), Information Field, and validates the Epilogue (LRC/CRC).
 - **Wireshark Integration (PCAP Export):** Automatically exports raw card traffic into a standard binary PCAP file encapsulated with GSMTAP/UDP headers, preserving accurate real-time packet timestamps. Simply open the output in Wireshark for instant deep-dive APDU packet analysis.
@@ -32,9 +32,31 @@ The figure above demonstrates a typical hardware setup for intercepting ISO 7816
 
 ## 🚀 Installation
 
-To use this decoder, place the project folder into your local `libsigrokdecode` decoders directory.
+Before installing the decoder, you need to have the **sigrok** suite (PulseView and `sigrok-cli`) installed on your system, along with the appropriate logic analyzer drivers to capture the hardware signals.
 
-### Linux
+### 1. Install PulseView & Drivers
+
+```bash
+# debian/ubuntu
+sudo apt update
+sudo apt install -y pulseview sigrok-cli sigrok-firmware-fx2lafw
+
+# fedora
+sudo dnf install -y pulseview sigrok-cli sigrok-firmware-fx2lafw
+```
+
+Grant your user permission to access the USB device:
+
+```bash
+sudo usermod -a -G dialout $USER
+```
+
+> ***Important***: Restart the machine for the dialout group changes to apply.
+
+### 2. Install the ISO 7816 Decoder
+
+Once PulseView is set up and can successfully communicate with your logic analyzer, install this plugin by placing the project folder into your local `libsigrokdecode` directory.
+
 ```bash
 # Create the local decoders directory if it doesn't exist
 mkdir -p ~/.local/share/libsigrokdecode/decoders/
@@ -43,43 +65,53 @@ mkdir -p ~/.local/share/libsigrokdecode/decoders/
 git clone https://github.com/arthursimas1/sigrok_iso7816.git ~/.local/share/libsigrokdecode/decoders/iso7816
 ```
 
-### Windows
-Open Command Prompt or PowerShell and run:
-```cmd
-:: Create the local decoders directory if it doesn't exist
-mkdir "%APPDATA%\sigrokdecode\decoders"
-
-:: Clone the repository directly into the decoders folder
-git clone https://github.com/arthursimas1/sigrok_iso7816.git "%APPDATA%\sigrokdecode\decoders\iso7816"
-```
-
-Restart PulseView to reload the decoders list.
+**Restart PulseView** to reload the plugins list. You will now find **"ISO 7816 Smart Card"** available in the decoders list.
 
 ---
 
-## 🛠️ Usage
+## 🛠️ Usage: step-by-step guide
 
-### Channels Required
-- **`RST` (Reset):** The decoder waits for a LOW-to-HIGH transition to kickstart the session. If `RST` goes LOW mid-session, the state machine resets appropriately.
-- **`I/O` (Data):** The main bi-directional data line.
+### 1. Collect data
 
-### Using PulseView (GUI)
-1. Open your logic capture in PulseView.
-2. Add the **"ISO 7816 Smart Card"** decoder from the protocol list.
-3. Assign your logic analyzer channels to `RST` and `I/O`.
+1. Open **PulseView**
+2. Connect to your logic analyzer
+3. Add the **"ISO 7816 Smart Card"** protocol from the decoders list
+4. Assign the respective logic analyzer channels to `RST` and `I/O`
+5. Set your desired **sampling rate** and **sample amount**\*
+6. Press **Run** to start capturing the data
+
+> *\* Tip: I personally use the highest sampling rate my logic analyzer supports and a continuous/high sample amount. I then manually stop the capture once the transaction I want to inspect is complete.*
 
 ![PulseView Screenshot](./assets/pulseview_overview_screenshot.png)
 
 ![PulseView Closeup](./assets/pulseview_closeup_screenshot.png)
 
-### Using `sigrok-cli`
-Run the decoder in the command line and dump the output to a Wireshark PCAP file:
+
+### 2. Export the capture (`.sr`)
+
+Once you have successfully captured the communication in PulseView, you need to save the raw session data to process it via the command line.
+
+1. Go to **Save As** in the menu bar
+2. Save the file as `capture.sr` in your working directory
+
+### 3. Convert to PCAP (`sigrok-cli`)
+
+To perform deep packet inspection in Wireshark, use `sigrok-cli` to run the decoder against your saved `.sr` file and dump the binary output into a `.pcap` file.
+
+Open your terminal and run the following command:
 
 ```bash
 sigrok-cli -i capture.sr -P iso7816:rst=D0:io=D1 -B iso7816=pcap > output.pcap
 ```
 
-*In the example above, `D0` and `D1` represent the logic analyzer pin numbers connected to RST and I/O respectively.*
+> *Note: In the example above, replace D0 and D1 with the actual logic analyzer pin names connected to the RST and I/O lines respectively.*
+
+### 4. View in Wireshark
+
+1. Open Wireshark
+2. Go to **File > Open** and select your newly generated `output.pcap`
+
+Because the decoder encapsulates the data with GSMTAP headers, you can immediately inspect the APDUs, headers, and payload data natively with accurate timestamps.
 
 ![Wireshark Screenshot](./assets/wireshark_overview_screenshot.png)
 
