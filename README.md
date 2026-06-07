@@ -25,7 +25,7 @@ The figure above demonstrates a typical hardware setup for intercepting ISO 7816
 - **Deep Protocol Inspection (T=0 & T=1):**
   - **T=0:** Parses headers, procedure bytes, and groups the payload into contiguous APDUs.
   - **T=1:** Extracts the Prologue (NAD, PCB, LEN), Information Field, and validates the Epilogue (LRC/CRC).
-- **Wireshark Integration (PCAP Export):** Automatically exports raw card traffic into a standard binary PCAP file encapsulated with GSMTAP/UDP headers, preserving accurate real-time packet timestamps. Simply open the output in Wireshark for instant deep-dive APDU packet analysis.
+- **Wireshark Integration (PCAP Export):** Automatically exports raw card traffic into a standard binary PCAP file encapsulated with GSMTAP headers, preserving accurate real-time packet timestamps. Simply open the output in Wireshark for instant deep-dive APDU packet analysis.
 - **Robust State Machine:** Built with a clean `PhysicalLayer` and `ProtocolLayer` architecture, verified by a comprehensive End-to-End bit stream testing framework.
 
 ---
