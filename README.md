@@ -13,7 +13,7 @@ Whether you are reverse engineering a SIM card, analyzing EMV transactions, or t
 <img src="./assets/card_reader_setup.jpg" alt="SIM Card Logic Analyzer Setup" width="300">
 </p>
 
-The figure above demonstrates a typical hardware setup for intercepting ISO 7816 traffic. A logic analyzer is connected to a SIM reader, probing the **GND** (common ground), **RST** (reset), **I/O** (data) lines. The SIM reader itself is connected to the computer via USB. A proprietary software is used to store data in the SIM card. (*As you can notice, there's a probe in the clock pin that was used during development to verify the timing, but is not required for the decoder to function*)
+The figure above demonstrates a typical hardware setup for intercepting ISO 7816 traffic. A logic analyzer is connected to a SIM reader, probing the **GND** (common ground), **RESET**, **I/O** lines. The SIM reader itself is connected to the computer via USB. A proprietary software is used to store data in the SIM card. (*As you can notice, there's a probe in the clock pin that was used during development to verify the timing, but is not required for the decoder to function*)
 
 ---
 
@@ -76,7 +76,7 @@ git clone https://github.com/arthursimas1/sigrok_iso7816.git ~/.local/share/libs
 1. Open **PulseView**
 2. Connect to your logic analyzer
 3. Add the **"ISO 7816 Smart Card"** protocol from the decoders list
-4. Assign the respective logic analyzer channels to `RST` and `I/O`
+4. Assign the respective logic analyzer channels to `RESET` and `I/O`
 5. Set your desired **sampling rate** and **sample amount**\*
 6. Press **Run** to start capturing the data
 
@@ -101,10 +101,10 @@ To perform deep packet inspection in Wireshark, use `sigrok-cli` to run the deco
 Open your terminal and run the following command:
 
 ```bash
-sigrok-cli -i capture.sr -P iso7816:rst=D0:io=D1 -B iso7816=pcap > output.pcap
+sigrok-cli -i capture.sr -P iso7816:reset=D0:io=D1 -B iso7816=pcap > output.pcap
 ```
 
-> *Note: In the example above, replace D0 and D1 with the actual logic analyzer pin names connected to the RST and I/O lines respectively.*
+> *Note: In the example above, replace D0 and D1 with the actual logic analyzer pin names connected to the RESET and I/O lines respectively.*
 
 ### 4. View in Wireshark
 

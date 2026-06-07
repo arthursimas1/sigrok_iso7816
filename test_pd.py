@@ -18,13 +18,13 @@ class ISO7816Stream:
         self.etu = etu
         self.events = []
         self.time = 0
-        self.events.append((0, 0, 1)) # RST=1
+        self.events.append((0, 0, 1)) # RESET=1
         self.events.append((0, 1, 1)) # IO=1
 
     def add_delay(self, etus):
         self.time += int(etus * self.etu)
 
-    def add_rst(self, val):
+    def add_reset(self, val):
         self.events.append((self.time, 0, val))
 
     def add_byte(self, val, convention='direct'):
@@ -232,9 +232,9 @@ class TestDecoderE2E(unittest.TestCase):
 
     def _run_full_decode(self, atr_bytes, command_bytes, pps_bytes=None):
         stream = ISO7816Stream(100)
-        stream.add_rst(0)
+        stream.add_reset(0)
         stream.add_delay(10)
-        stream.add_rst(1)
+        stream.add_reset(1)
         stream.add_delay(10)
 
         for b in atr_bytes: stream.add_byte(b)

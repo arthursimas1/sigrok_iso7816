@@ -511,7 +511,7 @@ class Decoder(srd.Decoder):
     tags = ['Smart Card']
 
     channels = (
-        {'id': 'rst', 'name': 'RST', 'desc': 'Reset'},
+        {'id': 'reset', 'name': 'RESET', 'desc': 'Reset'},
         {'id': 'io', 'name': 'I/O', 'desc': 'Data I/O'},
     )
 
@@ -550,7 +550,7 @@ class Decoder(srd.Decoder):
             self.samplerate = value
 
     def reset(self) -> None:
-        self.state = 'WAIT_RST'
+        self.state = 'WAIT_RESET'
         self.convention = None
         self.last_es = 0
 
@@ -563,7 +563,7 @@ class Decoder(srd.Decoder):
 
     def decode(self) -> None:
         while True:
-            if self.state == 'WAIT_RST':
+            if self.state == 'WAIT_RESET':
                 pins = self.wait({'skip': 0})
                 if pins[0] == 0:
                     self.wait([{0: 'r'}])
