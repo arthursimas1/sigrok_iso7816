@@ -1,6 +1,6 @@
 # ISO 7816 Smart Card Protocol Decoder for Sigrok
 
-[![Codecov](https://img.shields.io/badge/codecov-80%25-green.svg?logo=codecov)]()
+[![Codecov](https://img.shields.io/badge/codecov-81%25-green.svg?logo=codecov)]()
 [![Sigrok](https://img.shields.io/badge/libsigrokdecode-supported-green.svg)](https://sigrok.org/)
 [![Python](https://img.shields.io/badge/python-3.x-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
