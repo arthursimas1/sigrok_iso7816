@@ -52,7 +52,7 @@ jobs:
           echo "COVERAGE_COLOR=$COLOR" >> $GITHUB_ENV
 
           echo "### 🧪 Test Coverage Report" > pr_comment.md
-          echo "**Total Coverage (`--omit "test_pd.py"`):** \`${COVERAGE_PERCENTAGE}%\`" >> pr_comment.md
+          echo "**Total Coverage (\`--omit test_pd.py\`):** \`${COVERAGE_PERCENTAGE}%\`" >> pr_comment.md
           echo "<details><summary>Click to expand full report</summary>" >> pr_comment.md
           echo "" >> pr_comment.md
           echo '```text' >> pr_comment.md
